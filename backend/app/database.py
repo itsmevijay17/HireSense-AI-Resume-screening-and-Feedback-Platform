@@ -1,15 +1,8 @@
-import os
-from motor.motor_asyncio import AsyncIOMotorClient
-from dotenv import load_dotenv
+from pymongo import MongoClient
 
-load_dotenv()  # loads .env in dev
+# Replace with your actual Atlas connection string
+MONGO_URI = "mongodb+srv://vijayrv1719:H6WaPYBSACOixe9Q@cluster0-resumeproj.haqrozr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0-Resumeproj"
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-DB_NAME = os.getenv("MONGO_DB", "resume_ats")
-
-client = AsyncIOMotorClient(MONGO_URI)
-db = client[DB_NAME]
-
-# handy collection handles
-resumes_coll = db["resumes"]
-jds_coll = db["job_descriptions"]
+client = MongoClient(MONGO_URI)
+db = client["Cluster0-Resumeproj"]   # use your DB name
+resumes_collection = db["resumes"]

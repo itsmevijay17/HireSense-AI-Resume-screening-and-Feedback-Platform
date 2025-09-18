@@ -1,61 +1,114 @@
-# backend/app/api/parsing_routes.py
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from backend.app.services.parsing_service import ResumeParserService
+from backend.app.database import resumes_collection
+from backend.app.models.db_models import resume_document
 import os
 import tempfile
 import shutil
-from pymongo import MongoClient
+from typing import List
 from datetime import datetime
+import uuid
 
 router = APIRouter()
 parser = ResumeParserService()
-
-# MongoDB connection (Update URI if needed)
-client = MongoClient("mongodb://localhost:27017/")
-db = client["ats_db"]   # database
-resumes_collection = db["resumes"]   # collection
 
 
 @router.post("/parse-resume")
 async def parse_resume(file: UploadFile = File(...)):
     """
-    Accept a single resume upload (PDF) and return extracted text.
-    Saves to a system temp file (works on Windows/macOS/Linux), then parses.
+    Accept a single resume upload (PDF) and return structured data.
     Also stores parsed resume data in MongoDB.
     """
     try:
-        # Basic validation (PDF only for now)
         if not file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="Only .pdf files are supported right now.")
 
-        # Create a temp file path in the OS temp directory
+        # Save to a temp file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             shutil.copyfileobj(file.file, tmp)
             temp_path = tmp.name
 
-        # Parse using your service (expects a file path)
+        # Parse resume
         result = parser.parse_single_resume(temp_path)
 
-        # Clean up temp file
+        # Clean up
         try:
             os.remove(temp_path)
         except Exception:
             pass
 
-        # Insert parsed data into MongoDB
-        mongo_doc = {
-            "filename": file.filename,
-            "parsed_data": result,
-            "uploaded_at": datetime.utcnow()
-        }
+        # Create DB doc (single upload → new bulk_upload_id auto-generated)
+        mongo_doc = resume_document(file.filename, result)
         resumes_collection.insert_one(mongo_doc)
 
         return {
             "filename": file.filename,
-            "parsed_data": result  # {file_name, content, error}
+            "parsed_data": result
         }
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/parse-bulk-resumes")
+async def parse_bulk_resumes(files: List[UploadFile] = File(...)):
+    """
+    Accept multiple resumes (PDFs), parse them, and store in MongoDB.
+    Groups all resumes under the same bulk_upload_id.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded")
+
+    bulk_upload_id = str(uuid.uuid4())
+    results, mongo_docs = [], []
+
+    for file in files:
+        if not file.filename.lower().endswith(".pdf"):
+            results.append({
+                "filename": file.filename,
+                "error": "Only .pdf files are supported."
+            })
+            continue
+
+        try:
+            # Save to temp file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                shutil.copyfileobj(file.file, tmp)
+                temp_path = tmp.name
+
+            # Parse
+            parsed_result = parser.parse_single_resume(temp_path)
+
+            # Build schema doc
+            mongo_doc = resume_document(file.filename, parsed_result, bulk_upload_id)
+            mongo_docs.append(mongo_doc)
+
+            results.append({
+                "filename": file.filename,
+                "parsed_data": parsed_result
+            })
+
+        except Exception as e:
+            results.append({
+                "filename": file.filename,
+                "error": str(e)
+            })
+
+        finally:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+    if mongo_docs:
+        resumes_collection.insert_many(mongo_docs)
+
+    return {
+        "bulk_upload_id": bulk_upload_id,
+        "processed": len(files),
+        "successful": len([r for r in results if "parsed_data" in r]),
+        "failed": len([r for r in results if "error" in r]),
+        "results": results
+    }

@@ -6,7 +6,7 @@ from typing import List, Dict, Optional
 
 class ResumeParserService:
     def __init__(self):
-        # Keep the legacy resumes folder for HR bulk parsing if needed
+        # Optional folder for HR local testing
         self.project_root = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "../../../")
         )
@@ -22,7 +22,6 @@ class ResumeParserService:
     def extract_text_from_pdf(self, file_path: str) -> Dict:
         """
         Extracts text from a single PDF file.
-        Returns a dict with content and error info.
         """
         text = ""
         try:
@@ -61,7 +60,6 @@ class ResumeParserService:
         linkedin = re.search(r"(https?:\/\/)?(www\.)?linkedin\.com\/[A-Za-z0-9\-_/]+", raw_text)
         github = re.search(r"(https?:\/\/)?(www\.)?github\.com\/[A-Za-z0-9\-_/]+", raw_text)
 
-        # Assume first line is name if it looks like text
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
         name = lines[0] if lines else None
 
@@ -73,7 +71,7 @@ class ResumeParserService:
                 "email": email.group(0) if email else None,
                 "linkedin": linkedin.group(0) if linkedin else None,
                 "github": github.group(0) if github else None,
-                "location": None  # TODO: improve with NLP later
+                "location": None
             },
             "summary": None,
             "education": [],
@@ -86,7 +84,6 @@ class ResumeParserService:
             "error": parsed_data.get("error")
         }
 
-        # ---- Section Splitting ----
         sections = self.split_sections(raw_text)
 
         if "summary" in sections:
@@ -126,7 +123,6 @@ class ResumeParserService:
         for i, header in enumerate(headers):
             idx = lowered.find(header)
             if idx != -1:
-                # Find next header
                 next_idx = len(text)
                 for h in headers[i + 1:]:
                     nxt = lowered.find(h, idx + 1)
@@ -138,7 +134,7 @@ class ResumeParserService:
 
     def _extract_skills(self, skills_text: str) -> List[str]:
         """
-        Extract individual skills from the Skills section.
+        Extract skills from the Skills section.
         """
         skills = re.split(r",|\n|•|-", skills_text)
         return [s.strip() for s in skills if s.strip()]
@@ -149,7 +145,6 @@ class ResumeParserService:
     def parse_single_resume(self, file_path: str) -> Dict:
         """
         Parse a single resume given its file path.
-        This is used for resumes uploaded by the UI (job seeker).
         """
         if not os.path.exists(file_path):
             return {"file_name": os.path.basename(file_path), "content": None, "error": "File not found"}
@@ -159,9 +154,7 @@ class ResumeParserService:
 
     def parse_multiple_resumes(self, folder_path: Optional[str] = None) -> List[Dict]:
         """
-        Parse multiple resumes from a folder.
-        Default: the `resumes/` folder inside the project.
-        Used for HR bulk parsing.
+        Parse multiple resumes from a folder (HR local testing).
         """
         folder = folder_path or self.resumes_folder
         parsed_resumes = []
@@ -188,21 +181,7 @@ class ResumeParserService:
             result = self.parse_single_resume(file_path)
             parsed_resumes.append(result)
 
-            # Print preview for logs
             preview = (result["raw_text"][:200] + "...") if result.get("raw_text") else "[EMPTY FILE]"
             print(f"{idx}. {file_name} → {preview}")
 
         return parsed_resumes
-
-
-# Example usage for manual testing
-if __name__ == "__main__":
-    parser = ResumeParserService()
-
-    # Job seeker module: Single resume (file path required)
-    single_resume_result = parser.parse_single_resume("resumes/Resume_of_maneesh.pdf")
-    print("\nSingle Resume Parsed:\n", single_resume_result)
-
-    # HR module: Multiple resumes in resumes/ folder
-    multiple_resumes_result = parser.parse_multiple_resumes()
-    print(f"\n[INFO] Parsed {len(multiple_resumes_result)} resumes successfully.")
