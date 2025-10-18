@@ -205,7 +205,7 @@ curl -X POST "http://localhost:8000/api/jobseeker/analyze" \
 |<img width="1064" height="469" alt="image" src="https://github.com/user-attachments/assets/83fd6557-143e-406d-b50c-9074eed40268" />
  | <img width="1064" height="466" alt="image" src="https://github.com/user-attachments/assets/00402833-99bc-4fae-bcf8-83c1329d6b94" />
 | <img width="1064" height="460" alt="image" src="https://github.com/user-attachments/assets/25beb904-c2e3-4926-8ba7-c39b9c95a7df" />
- | <img width="1064" height="501" alt="image" src="https://github.com/user-attachments/assets/79d8f36d-7470-4fe8-9afa-f6af61a06366" />
+ | 
 
 
 ---
@@ -248,5 +248,6 @@ For issues or feature requests:
 ⭐ Star this repo if you find it helpful!
 
 </div>
+
 
 
