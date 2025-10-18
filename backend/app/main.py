@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from backend.app.api import hr_routes, job_seeker_routes, parsing_routes, scoring_routes
+from backend.app.api import hr_routes, job_seeker_routes, parsing_routes
 from backend.app.database import client  
 
 app = FastAPI(title="Resume ATS API")
@@ -8,7 +8,7 @@ app = FastAPI(title="Resume ATS API")
 app.include_router(hr_routes.router, prefix="/hr", tags=["HR Module"])
 app.include_router(job_seeker_routes.router, prefix="/jobseeker", tags=["Job Seeker Module"])
 app.include_router(parsing_routes.router, prefix="/parser", tags=["Parsing Service"])
-app.include_router(scoring_routes.router, prefix="/scoring", tags=["Resume Scoring"])
+
 
 @app.get("/")
 def root():
